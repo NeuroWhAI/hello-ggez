@@ -109,7 +109,6 @@ impl EventHandler for State {
     }
 
     fn mouse_motion_event(&mut self, _ctx: &mut Context, x: f32, y: f32, _dx: f32, _dy: f32) {
-        println!("{}, {}", x, y);
         self.imgui_wrapper.update_mouse_pos(x, y);
     }
 
