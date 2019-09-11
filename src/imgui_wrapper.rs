@@ -16,6 +16,11 @@ use {
 };
 
 
+pub trait ImGuiBlueprint {
+    fn render(&mut self, ui: &Ui);
+}
+
+
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 struct MouseState {
     pos: (i32, i32),
@@ -24,11 +29,10 @@ struct MouseState {
 }
 
 pub struct ImGuiWrapper {
-    pub imgui: imgui::Context,
-    pub renderer: Renderer<gfx_core::format::Rgba8, gfx_device_gl::Resources>,
+    imgui: imgui::Context,
+    renderer: Renderer<gfx_core::format::Rgba8, gfx_device_gl::Resources>,
     last_frame: Instant,
     mouse_state: MouseState,
-    show_popup: bool,
 }
 
 impl ImGuiWrapper {
@@ -67,11 +71,10 @@ impl ImGuiWrapper {
             renderer,
             last_frame: Instant::now(),
             mouse_state: MouseState::default(),
-            show_popup: false,
         }
     }
 
-    pub fn render(&mut self, ctx: &mut Context) {
+    pub fn render<T: ImGuiBlueprint>(&mut self, ctx: &mut Context, bp: &mut T) {
         // Update mouse
         self.update_mouse();
 
@@ -90,63 +93,7 @@ impl ImGuiWrapper {
 
         let ui = self.imgui.frame();
 
-        // Various ui things
-        {
-            // Window
-            ui.window(im_str!("Hello world"))
-                .size([300.0, 600.0], imgui::Condition::FirstUseEver)
-                .position([100.0, 100.0], imgui::Condition::FirstUseEver)
-                .build(|| {
-                    ui.text(im_str!("Hello world!"));
-                    ui.text(im_str!("This...is...imgui-rs!"));
-                    ui.separator();
-                    let mouse_pos = ui.io().mouse_pos;
-                    ui.text(im_str!("Mouse Position: ({:.1},{:.1})", mouse_pos[0], mouse_pos[1]));
-
-                    if ui.small_button(im_str!("small button")) {
-                        println!("Small button clicked");
-                    }
-                });
-
-            // Popup
-            ui.popup(im_str!("popup"), || {
-                if ui.menu_item(im_str!("popup menu item 1")).build() {
-                    println!("popup menu item 1 clicked");
-                }
-
-                if ui.menu_item(im_str!("popup menu item 2")).build() {
-                    println!("popup menu item 2 clicked");
-                }
-            });
-
-            // Menu bar
-            ui.main_menu_bar(|| {
-                ui.menu(im_str!("Menu 1")).build(|| {
-                    if ui.menu_item(im_str!("Item 1.1")).build() {
-                        println!("item 1.1 inside menu bar clicked");
-                    }
-
-                    ui.menu(im_str!("Item 1.2")).build(|| {
-                        if ui.menu_item(im_str!("Item 1.2.1")).build() {
-                            println!("item 1.2.1 inside menu bar clicked");
-                        }
-                        if ui.menu_item(im_str!("Item 1.2.2")).build() {
-                            println!("item 1.2.2 inside menu bar clicked");
-                        }
-                    });
-                });
-
-                ui.menu(im_str!("Menu 2")).build(|| {
-                    if ui.menu_item(im_str!("Item 2.1")).build() {
-                        println!("item 2.1 inside menu bar clicked");
-                    }
-                });
-            });
-        }
-
-        if self.show_popup {
-            ui.open_popup(im_str!("popup"));
-        }
+        bp.render(&ui);
 
         // Render
         let (factory, _, encoder, _, render_target) = graphics::gfx_objects(ctx);
@@ -182,13 +129,5 @@ impl ImGuiWrapper {
 
     pub fn update_mouse_down(&mut self, pressed: (bool, bool, bool)) {
         self.mouse_state.pressed = pressed;
-
-        if pressed.0 {
-            self.show_popup = false;
-        }
-    }
-
-    pub fn open_popup(&mut self) {
-        self.show_popup = true;
     }
 }

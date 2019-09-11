@@ -22,7 +22,14 @@ use {
             Point2,
         }
     },
-    imgui_wrapper::ImGuiWrapper,
+    imgui::{
+        Ui,
+        im_str,
+    },
+    imgui_wrapper::{
+        ImGuiWrapper,
+        ImGuiBlueprint,
+    },
 };
 
 
@@ -51,16 +58,99 @@ fn main() {
 }
 
 
+struct DemoGui {
+    popup_visible: bool,
+}
+
+impl DemoGui {
+    fn new() -> Self {
+        DemoGui {
+            popup_visible: false,
+        }
+    }
+
+    fn open_popup(&mut self) {
+        self.popup_visible = true;
+    }
+
+    fn close_popup(&mut self) {
+        self.popup_visible = false;
+    }
+}
+
+impl ImGuiBlueprint for DemoGui {
+    fn render(&mut self, ui: &Ui) {
+        // Window
+        ui.window(im_str!("Hello world"))
+            .size([300.0, 600.0], imgui::Condition::FirstUseEver)
+            .position([100.0, 100.0], imgui::Condition::FirstUseEver)
+            .build(|| {
+                ui.text(im_str!("Hello world!"));
+                ui.text(im_str!("This...is...imgui-rs!"));
+                ui.separator();
+                let mouse_pos = ui.io().mouse_pos;
+                ui.text(im_str!("Mouse Position: ({:.1},{:.1})", mouse_pos[0], mouse_pos[1]));
+
+                if ui.small_button(im_str!("small button")) {
+                    println!("Small button clicked");
+                }
+            });
+
+        // Popup
+        ui.popup(im_str!("popup"), || {
+            if ui.menu_item(im_str!("popup menu item 1")).build() {
+                println!("popup menu item 1 clicked");
+            }
+
+            if ui.menu_item(im_str!("popup menu item 2")).build() {
+                println!("popup menu item 2 clicked");
+            }
+        });
+
+        // Menu bar
+        ui.main_menu_bar(|| {
+            ui.menu(im_str!("Menu 1")).build(|| {
+                if ui.menu_item(im_str!("Item 1.1")).build() {
+                    println!("item 1.1 inside menu bar clicked");
+                }
+
+                ui.menu(im_str!("Item 1.2")).build(|| {
+                    if ui.menu_item(im_str!("Item 1.2.1")).build() {
+                        println!("item 1.2.1 inside menu bar clicked");
+                    }
+                    if ui.menu_item(im_str!("Item 1.2.2")).build() {
+                        println!("item 1.2.2 inside menu bar clicked");
+                    }
+                });
+            });
+
+            ui.menu(im_str!("Menu 2")).build(|| {
+                if ui.menu_item(im_str!("Item 2.1")).build() {
+                    println!("item 2.1 inside menu bar clicked");
+                }
+            });
+        });
+
+        if self.popup_visible {
+            ui.open_popup(im_str!("popup"));
+        }
+    }
+}
+
+
 struct State {
     imgui_wrapper: ImGuiWrapper,
+    gui: DemoGui,
 }
 
 impl State {
     fn new(ctx: &mut Context) -> Self {
         let imgui_wrapper = ImGuiWrapper::new(ctx);
+        let gui = DemoGui::new();
 
         State {
             imgui_wrapper,
+            gui,
         }
     }
 }
@@ -79,7 +169,7 @@ impl EventHandler for State {
             .build(ctx)?;
         graphics::draw(ctx, &mesh, (Point2::new(100.0, 128.0), 0.0, graphics::WHITE))?;
 
-        self.imgui_wrapper.render(ctx);
+        self.imgui_wrapper.render(ctx, &mut self.gui);
 
         graphics::present(ctx)
     }
@@ -96,6 +186,8 @@ impl EventHandler for State {
             button == MouseButton::Right,
             button == MouseButton::Middle,
         ));
+
+        self.gui.close_popup();
     }
 
     fn mouse_button_up_event(
@@ -119,11 +211,8 @@ impl EventHandler for State {
         _keymods: KeyMods,
         _repeat: bool,
     ) {
-        match keycode {
-            KeyCode::P => {
-                self.imgui_wrapper.open_popup();
-            }
-            _ => (),
+        if keycode == KeyCode::P {
+            self.gui.open_popup();
         }
     }
 }
